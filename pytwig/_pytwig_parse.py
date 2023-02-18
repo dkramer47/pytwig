@@ -2,7 +2,7 @@ import re
 from ._pytwig_functions import call_pytwig_function
 
 class PyTwigRegex:
-    SAY_DO_REGEX = re.compile(r'(?:{%|{{)\s*((?:.|\s)+?)\s*(?:%}|}})') # Matches a "say" or "do": {{ something }}
+    SAY_DO_REGEX = re.compile(r'(?:{%|{{|{#)\s*((?:.|\s)+?)\s*(?:%}|}}|#})') # Matches a "say" or "do": {{ something }}, {% do something %}, and {# comment somthing #}
     FUNCTION_REGEX = re.compile(r'(.+?)\((.*?)\)') # Matches functions: something()
     PARAMS_REGEX = re.compile(r',(?=(?:[^"\']*["\'][^"\']*["\'])*[^"\']*$)') # Matches all of the commas in a function's params.
 
@@ -24,6 +24,8 @@ def parse_pytwig_template(template : str, context : dict):
             template = parse_say(match, context)
         elif code[:2] == '{%':
             template = parse_do(match, context)
+        elif code[:2] == '{#':
+            template = parse_comment(match, context)
         
         # Find the next match starting from the start position of this one, since it won't change with the updates being made.
         match = PyTwigRegex.SAY_DO_REGEX.search(template, match.start())
@@ -58,6 +60,13 @@ def parse_do(match : re.Match, context : dict):
     # Import the tag function here to avoid a circular dependency.
     from ._pytwig_tags import call_pytwig_tag
     return call_pytwig_tag(tags, context)
+
+def parse_comment(match : re.match, context):
+    '''
+    Parses the given comment and removes it from the template.
+    '''
+    template = context['template']
+    return template[:match.start()] + template[match.end():]
 
 def parse_value(text : str, context : dict):
     '''
